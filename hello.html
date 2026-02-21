@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily & Weekly Goal Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --item-bg: rgba(2, 6, 23, 0.6);
+      --accent: #22c55e;
+      --accent-hover: #16a34a;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --highlight: rgba(34, 197, 94, 0.2);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      gap: 30px;
+    }
+
+    .app-container {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 30px;
+      width: 100%;
+      max-width: 650px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1, h2 {
+      text-align: center;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 5px;
+      background: linear-gradient(to right, #22c55e, #3b82f6);
+      -webkit-background-clip: text;
+      background-clip: text; 
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 25px;
+    }
+
+    /* Week Selector */
+    .week-selector {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 25px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .day-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: var(--text-muted);
+    }
+
+    .day-pill.active {
+      background: var(--highlight);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 4px 10px rgba(34, 197, 94, 0.1);
+    }
+
+    .day-pill:hover:not(.active) { background: rgba(255, 255, 255, 0.05); }
+    .day-name { font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px; }
+    .day-date { font-size: 1.1rem; }
+
+    /* Inputs */
+    .add-box {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 18px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      margin-bottom: 25px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    input[type="text"], textarea {
+      width: 100%; padding: 14px 16px; border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03); color: white; font-size: 1rem; outline: none; transition: all 0.3s ease;
+      font-family: 'Inter', sans-serif;
+    }
+
+    textarea { resize: none; height: 70px; font-size: 0.9rem; }
+    input[type="text"]:focus, textarea:focus { border-color: var(--accent); background: rgba(0, 0, 0, 0.3); box-shadow: 0 0 15px rgba(34, 197, 94, 0.15); }
+
+    .btn {
+      padding: 14px; border-radius: 10px; border: none; cursor: pointer;
+      font-weight: 700; font-size: 1rem; transition: all 0.3s ease; width: 100%;
+    }
+
+    .add-btn { background: var(--accent); color: #022c22; }
+    .add-btn:hover { background: var(--accent-hover); transform: translateY(-2px); }
+
+    .pdf-btn { background: #3b82f6; color: white; margin-top: 20px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2); }
+    .pdf-btn:hover { background: #2563eb; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4); }
+
+    ul { list-style: none; margin-bottom: 20px; flex-grow: 1; min-height: 100px; }
+
+    li {
+      display: flex; align-items: flex-start; gap: 15px; background: var(--item-bg); padding: 16px 18px;
+      border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255, 255, 255, 0.03);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); animation: slideUp 0.4s ease forwards; cursor: pointer;
+    }
+
+    li:hover, li.expanded { transform: scale(1.02); background: rgba(30, 41, 59, 0.95); border-color: rgba(34, 197, 94, 0.3); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4); z-index: 10; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+    input[type="checkbox"] {
+      appearance: none; width: 22px; height: 22px; border: 2px solid var(--text-muted); border-radius: 6px;
+      cursor: pointer; position: relative; transition: all 0.2s ease; flex-shrink: 0; margin-top: 2px;
+    }
+    input[type="checkbox"]:checked { background-color: var(--accent); border-color: var(--accent); }
+    input[type="checkbox"]:checked::after { content: '✔'; position: absolute; color: #022c22; font-size: 14px; font-weight: bold; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+    .content-wrapper { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .goal-text { font-size: 1.05rem; font-weight: 600; position: relative; transition: color 0.3s ease; word-break: break-word; }
+    li.completed .goal-text { color: var(--text-muted); }
+    li.completed .goal-text::after { content: ''; position: absolute; left: 0; top: 50%; width: 100%; height: 2px; background: var(--text-muted); animation: strike 0.3s ease-out forwards; }
+
+    .desc-wrapper { display: grid; grid-template-rows: 0fr; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); opacity: 0; }
+    li:hover .desc-wrapper, li.expanded .desc-wrapper { grid-template-rows: 1fr; opacity: 1; margin-top: 8px; }
+    .desc-inner { overflow: hidden; }
+    .goal-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; padding-bottom: 2px; }
+
+    @keyframes strike { from { width: 0; } to { width: 100%; } }
+
+    .delete-btn {
+      background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s ease; font-size: 1.1rem; flex-shrink: 0;
+    }
+    .delete-btn:hover { background: var(--danger); color: white; transform: scale(1.1); }
+
+    .chart-wrapper { position: relative; width: 180px; height: 180px; margin: 0 auto; background: var(--item-bg); border-radius: 50%; padding: 15px; box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.3); }
+    .percentage-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.5rem; font-weight: 700; color: var(--text-main); text-align: center; }
+    .percentage-display span { display: block; font-size: 0.8rem; font-weight: 400; color: var(--text-muted); margin-top: 2px; }
+    .empty-state { text-align: center; color: var(--text-muted); padding: 20px; font-style: italic; }
+
+    /* Weekly Report */
+    .report-container { margin-top: 10px; }
+    .report-stats { display: flex; justify-content: space-around; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; }
+    .stat-box { text-align: center; }
+    .stat-num { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .bar-chart-container { height: 250px; width: 100%; background: white; border-radius: 12px; padding: 15px; } /* White background for chart so it looks good in PDF */
+  </style>
+</head>
+<body>
+  
+  <div class="app-container">
+    <h1>Goal Tracker</h1>
+    <p class="subtitle" id="dateDisplay">Select a day to plan</p>
+
+    <div class="week-selector" id="weekSelector"></div>
+
+    <div class="add-box">
+      <input id="goalInput" type="text" placeholder="Task title... (e.g. Workout) 🔥" />
+      <textarea id="descInput" placeholder="Add a short description... (optional)"></textarea>
+      <button class="btn add-btn" onclick="addGoal()">Add Goal</button>
+    </div>
+
+    <ul id="goalList"></ul>
+
+    <div id="chartContainer" class="chart-wrapper" style="display: none;">
+      <canvas id="dailyChart"></canvas>
+      <div class="percentage-display" id="percentageText">0%<span>Completed</span></div>
+    </div>
+  </div>
+
+  <div class="app-container report-container">
+    <h2>Weekly Report</h2>
+    <p class="subtitle">Your performance this week</p>
+    
+    <div class="report-stats">
+      <div class="stat-box">
+        <div class="stat-num" id="totalWeekGoals">0</div>
+        <div class="stat-label">Total Goals</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="completedWeekGoals">0</div>
+        <div class="stat-label">Completed</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="weekScore">0%</div>
+        <div class="stat-label">Success Rate</div>
+      </div>
+    </div>
+
+    <div class="bar-chart-container">
+      <canvas id="weeklyChart"></canvas>
+    </div>
+
+    <button id="downloadPdfBtn" class="btn pdf-btn" onclick="generatePDF()">
+      📄 Download Weekly PDF Report
+    </button>
+  </div>
+
+  <script>
+    const goalInput = document.getElementById('goalInput');
+    const descInput = document.getElementById('descInput');
+    const goalList = document.getElementById('goalList');
+    const chartContainer = document.getElementById('chartContainer');
+    const percentageText = document.getElementById('percentageText');
+    const weekSelector = document.getElementById('weekSelector');
+    
+    let allData = JSON.parse(localStorage.getItem('weekly_data')) || {};
+    let selectedDate = formatDate(new Date());
+    let weekDates = getWeekDates(new Date());
+
+    let dailyChart = null;
+    let weeklyChart = null;
+
+    goalInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') descInput.focus(); });
+    descInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addGoal(); }
+    });
+
+    function formatDate(date) { return date.toISOString().split('T')[0]; }
+
+    function getWeekDates(current) {
+      let week = [];
+      let d = new Date(current);
+      let day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6 : 1);
+      let monday = new Date(d.setDate(diff));
+      for (let i = 0; i < 7; i++) {
+        let nextDay = new Date(monday);
+        nextDay.setDate(monday.getDate() + i);
+        week.push(nextDay);
+      }
+      return week;
+    }
+
+    function buildWeekSelector() {
+      weekSelector.innerHTML = '';
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      weekDates.forEach((date, index) => {
+        const dateString = formatDate(date);
+        const div = document.createElement('div');
+        div.classList.add('day-pill');
+        if (dateString === selectedDate) div.classList.add('active');
+        div.innerHTML = `<span class="day-name">${days[index]}</span><span class="day-date">${date.getDate()}</span>`;
+        div.onclick = () => { selectedDate = dateString; buildWeekSelector(); render(); };
+        weekSelector.appendChild(div);
+      });
+      const todayString = formatDate(new Date());
+      document.getElementById('dateDisplay').textContent = 
+        selectedDate === todayString ? "Planning for Today" : `Planning for ${new Date(selectedDate).toDateString()}`;
+    }
+
+    function save() { localStorage.setItem('weekly_data', JSON.stringify(allData)); render(); }
+
+    function addGoal() {
+      const title = goalInput.value.trim();
+      const desc = descInput.value.trim();
+      if (!title) return; 
+      if (!allData[selectedDate]) allData[selectedDate] = [];
+      allData[selectedDate].push({ text: title, desc: desc, done: false });
+      goalInput.value = ''; descInput.value = ''; goalInput.focus();
+      save();
+    }
+
+    function toggleGoal(index, event) { event.stopPropagation(); allData[selectedDate][index].done = !allData[selectedDate][index].done; save(); }
+    function deleteGoal(index, event) { event.stopPropagation(); allData[selectedDate].splice(index, 1); save(); }
+
+    function updateDailyChart(completed, total) {
+      const remaining = total - completed;
+      const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+      percentageText.innerHTML = `${percent}%<span>Completed</span>`;
+      if (dailyChart) { dailyChart.data.datasets[0].data = [completed, remaining]; dailyChart.update(); } 
+      else {
+        const ctx = document.getElementById('dailyChart').getContext('2d');
+        dailyChart = new Chart(ctx, {
+          type: 'doughnut', data: { labels: ['Completed', 'Remaining'], datasets: [{ data: [completed, remaining], backgroundColor: ['#22c55e', 'rgba(255, 255, 255, 0.05)'], borderWidth: 0, hoverOffset: 4 }] },
+          options: { responsive: true, cutout: '80%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { animateScale: true, animateRotate: true, duration: 800 } }
+        });
+      }
+    }
+
+    function renderWeeklyReport() {
+      let weekTotal = 0, weekCompleted = 0;
+      let dailyCompletionData = []; 
+
+      weekDates.forEach(date => {
+        const dateStr = formatDate(date);
+        const dayGoals = allData[dateStr] || [];
+        const dayTotal = dayGoals.length;
+        const dayCompleted = dayGoals.filter(g => g.done).length;
+        weekTotal += dayTotal; weekCompleted += dayCompleted;
+        const dayPercent = dayTotal === 0 ? 0 : Math.round((dayCompleted / dayTotal) * 100);
+        dailyCompletionData.push(dayPercent);
+      });
+
+      document.getElementById('totalWeekGoals').textContent = weekTotal;
+      document.getElementById('completedWeekGoals').textContent = weekCompleted;
+      document.getElementById('weekScore').textContent = weekTotal === 0 ? '0%' : `${Math.round((weekCompleted/weekTotal)*100)}%`;
+
+      if (weeklyChart) { weeklyChart.data.datasets[0].data = dailyCompletionData; weeklyChart.update(); } 
+      else {
+        const ctx = document.getElementById('weeklyChart').getContext('2d');
+        weeklyChart = new Chart(ctx, {
+          type: 'bar',
+          data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], datasets: [{ label: 'Daily Score (%)', data: dailyCompletionData, backgroundColor: 'rgba(59, 130, 246, 0.8)', borderRadius: 6 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, max: 100, ticks: { color: '#64748b' } }, x: { ticks: { color: '#64748b' }, grid: { display: false } } },
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+    }
+
+    function render() {
+      buildWeekSelector(); goalList.innerHTML = '';
+      const goals = allData[selectedDate] || []; const total = goals.length; const completed = goals.filter(g => g.done).length;
+
+      if (total === 0) {
+        goalList.innerHTML = `<div class="empty-state">No goals for ${selectedDate === formatDate(new Date()) ? 'today' : 'this day'}. Relax or add one!</div>`;
+        chartContainer.style.display = 'none';
+      } else {
+        chartContainer.style.display = 'block';
+        goals.forEach((goal, i) => {
+          const li = document.createElement('li');
+          if (goal.done) li.classList.add('completed');
+          li.onclick = () => li.classList.toggle('expanded');
+          const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = goal.done; checkbox.onclick = (e) => toggleGoal(i, e);
+          const contentDiv = document.createElement('div'); contentDiv.classList.add('content-wrapper');
+          const titleSpan = document.createElement('span'); titleSpan.classList.add('goal-text'); titleSpan.textContent = goal.text; contentDiv.appendChild(titleSpan);
+          if (goal.desc) {
+            const descWrapper = document.createElement('div'); descWrapper.classList.add('desc-wrapper');
+            const descInner = document.createElement('div'); descInner.classList.add('desc-inner');
+            const descText = document.createElement('p'); descText.classList.add('goal-desc'); descText.textContent = goal.desc;
+            descInner.appendChild(descText); descWrapper.appendChild(descInner); contentDiv.appendChild(descWrapper);
+          }
+          const delBtn = document.createElement('button'); delBtn.classList.add('delete-btn'); delBtn.innerHTML = '✕'; delBtn.title = "Delete Goal"; delBtn.onclick = (e) => deleteGoal(i, e);
+          li.appendChild(checkbox); li.appendChild(contentDiv); li.appendChild(delBtn); goalList.appendChild(li);
+        });
+      }
+      updateDailyChart(completed, total); renderWeeklyReport();
+    }
+    function generatePDF() {
+      const btn = document.getElementById('downloadPdfBtn');
+      btn.innerHTML = "⏳ Generating PDF...";
+      btn.style.background = "#94a3b8";
+
+      // Temporary element for clean PDF formatting
+      const element = document.createElement('div');
+      element.style.padding = '40px';
+      element.style.fontFamily = 'Arial, sans-serif';
+      element.style.color = '#0f172a';
+      element.style.background = '#ffffff'; // White bg for printing
+
+      // Header
+      element.innerHTML = `
+        <h1 style="text-align: center; color: #3b82f6; margin-bottom: 5px;">Weekly Performance Report</h1>
+        <p style="text-align: center; color: #64748b; margin-bottom: 30px;">Week starting: <b>${formatDate(weekDates[0])}</b></p>
+      `;
+
+      // Main Stats
+      const tGoals = document.getElementById('totalWeekGoals').textContent;
+      const cGoals = document.getElementById('completedWeekGoals').textContent;
+      const wScore = document.getElementById('weekScore').textContent;
+
+      element.innerHTML += `
+        <div style="display: flex; justify-content: space-between; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 30px;">
+          <div style="text-align: center; width: 33%;">
+            <h2 style="margin: 0; color: #0f172a; font-size: 24px;">${tGoals}</h2><span style="color: #64748b; font-size: 14px;">Total Goals</span>
+          </div>
+          <div style="text-align: center; width: 33%; border-left: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1;">
+            <h2 style="margin: 0; color: #0f172a; font-size: 24px;">${cGoals}</h2><span style="color: #64748b; font-size: 14px;">Completed</span>
+          </div>
+          <div style="text-align: center; width: 33%;">
+            <h2 style="margin: 0; color: #22c55e; font-size: 24px;">${wScore}</h2><span style="color: #64748b; font-size: 14px;">Success Rate</span>
+          </div>
+        </div>
+      `;
+
+      // Chart Image capture
+      const canvas = document.getElementById('weeklyChart');
+      const chartImg = canvas.toDataURL('image/png', 1.0);
+      element.innerHTML += `
+        <h3 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px;">Graph Overview</h3>
+        <img src="${chartImg}" style="width: 100%; max-height: 300px; object-fit: contain; margin-bottom: 30px; display: block;" />
+      `;
+
+      // Daily Tasks Breakdown
+      let breakdownHTML = `<h3 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 20px;">Daily Checklist</h3>`;
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      
+      weekDates.forEach((date, index) => {
+        const dStr = formatDate(date);
+        const dGoals = allData[dStr] || [];
+        
+        breakdownHTML += `<div style="margin-bottom: 20px;">
+          <h4 style="margin: 0 0 10px 0; color: #334155; background: #f1f5f9; padding: 8px; border-radius: 6px;">${days[index]} <span style="font-size:12px; font-weight:normal; color:#64748b;">(${dStr})</span></h4>`;
+        
+        if (dGoals.length === 0) {
+          breakdownHTML += `<p style="color: #94a3b8; font-style: italic; margin: 0 0 0 15px; font-size: 14px;">No goals scheduled.</p>`;
+        } else {
+          breakdownHTML += `<ul style="list-style: none; padding-left: 15px; margin: 0;">`;
+          dGoals.forEach(g => {
+            breakdownHTML += `<li style="margin-bottom: 8px; font-size: 15px;">
+              ${g.done ? '<span style="color: #22c55e; margin-right: 8px;">✔</span>' : '<span style="color: #ef4444; margin-right: 8px;">✖</span>'} 
+              <span style="${g.done ? 'text-decoration: line-through; color: #94a3b8;' : 'color: #334155;'}">${g.text}</span>
+            </li>`;
+          });
+          breakdownHTML += `</ul>`;
+        }
+        breakdownHTML += `</div>`;
+      });
+
+      element.innerHTML += breakdownHTML;
+
+      // PDF Settings & Generation
+      const opt = {
+        margin:       10,
+        filename:     `Weekly_Report_${formatDate(weekDates[0])}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        // Reset Button
+        btn.innerHTML = "📄 Download Weekly PDF Report";
+        btn.style.background = "#3b82f6";
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>
